@@ -6,98 +6,65 @@
 //
 
 import SwiftUI
-import AppKit
 
 struct ContentView: View {
-    @Binding var text: String
+    @Binding var lines: [String]
 
     var body: some View {
-        ScrollView([.vertical, .horizontal], showsIndicators: true) {
-            HStack(spacing: 0) {
-                lineNumberView()
-                TextView(text: $text)
-            }
-            .background(Color(hue: 0.6, saturation: 0.5, brightness: 0.12))
-            .frame(minWidth: NSScreen.main?.visibleFrame.width, minHeight: NSScreen.main?.visibleFrame.height)
-        }
-        
-    }
-    
-    struct TextView: NSViewRepresentable {
-        @Binding var text: String
-        
-        func makeCoordinator() -> Coordinator {
-            Coordinator(text: $text)
-        }
-        
-        func makeNSView(context: Context) -> NSTextView {
-            let textView = NSTextView()
-            textView.isEditable = true
-            textView.isSelectable = true
-            textView.backgroundColor = NSColor(hue: 0.6, saturation: 0.5, brightness: 0.12, alpha: 1.0)
-            textView.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
-            textView.string = text
-            textView.textColor = NSColor(hue: 0, saturation: 0, brightness: 0.7, alpha: 1.0) // Set the text color
-            textView.insertionPointColor = NSColor(hue: 0, saturation: 0, brightness: 0.7, alpha: 1.0) // Set the caret color
-            
-            // Enable horizontal text overflow
-            let textContainer = textView.textContainer
-            textContainer?.widthTracksTextView = false
-            textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-            
-            
-            textView.delegate = context.coordinator
-            return textView
-        }
-        
-        func updateNSView(_ nsView: NSTextView, context: Context) {
-            if nsView.string != text {
-                nsView.string = text
-            }
-        }
-        
-        class Coordinator: NSObject, NSTextViewDelegate {
-            @Binding var text: String
-            
-            init(text: Binding<String>) {
-                _text = text
-            }
-            
-            func textDidChange(_ notification: Notification) {
-                if let textView = notification.object as? NSTextView {
-                    text = textView.string
+        ScrollView {
+            HStack(alignment: .top) {
+                VStack(alignment: .trailing) {
+                    ForEach(0..<lines.count, id: \.self) { i in
+                        Text("\(i+1)")
+                            .font(.system(.body, design: .monospaced))
+                            .frame(width: 30, alignment: .trailing) // fixed width
+                            .padding(.leading)
+                            .foregroundColor(.white)
+                    }
                 }
+                TextView(text: $lines)
             }
         }
-    }
-
-
-    private func lineNumberView() -> some View {
-        VStack(spacing: 0) {
-
-            Text("1")
-                .font(.system(size: 14, weight: .regular, design: .monospaced))
-                .frame(width: 50, alignment: .trailing)
-                .foregroundColor(Color(hue: 0, saturation: 0, brightness: 0.4))
-            ForEach(Array(text.enumerated()), id: \.offset) { index, character in
-                if character.isNewline {
-                    let lineNumber = lineOrder(for: index)
-                    let lineNumberText = Text(verbatim: "\(lineNumber)")
-                        .font(.system(size: 14, weight: .regular, design: .monospaced))
-                        .frame(width: 50, alignment: .trailing)
-                        .foregroundColor(Color(hue: 0, saturation: 0, brightness: 0.4))
-                    lineNumberText.fixedSize() // Ensure the text does not expand to fit content
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-        .frame(alignment: .trailing)
-        .background(Color(hue: 0.6, saturation: 0.5, brightness: 0.1))
-    }
-
-    private func lineOrder(for index: Int) -> Int {
-        let lineBreakCount = text.prefix(index + 1).filter({ $0.isNewline }).count
-        return lineBreakCount + 1
+        .background(Color.black)
     }
 }
+
+struct TextView: NSViewRepresentable {
+    @Binding var text: [String]
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    func makeNSView(context: Context) -> NSTextView {
+        let textView = NSTextView()
+        textView.backgroundColor = NSColor.black
+        textView.textColor = NSColor.white
+        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        textView.delegate = context.coordinator
+        return textView
+    }
+    
+    func updateNSView(_ nsView: NSTextView, context: Context) {
+        let selectedRanges = nsView.selectedRanges
+        nsView.string = text.joined(separator: "\n")
+        nsView.selectedRanges = selectedRanges
+    }
+    
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: TextView
+
+        init(_ parent: TextView) {
+            self.parent = parent
+        }
+        
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string.components(separatedBy: "\n")
+        }
+    }
+}
+
+
+
+
